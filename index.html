@@ -743,7 +743,7 @@
         var g = svg.append("g")
                 .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-        d3.json("prob.json", function(error, data) {
+        d3.json("https://ghodsimahdi.github.io/CNNLens/prob.json", function(error, data) {
             if (error) throw error;
 
             maxVal = Math.max.apply(null, data);
