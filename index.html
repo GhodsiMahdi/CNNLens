@@ -1,12 +1,1255 @@
-<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
-<HTML>
-   <HEAD>
-      <TITLE>
-         A Small Hello 
-      </TITLE>
-   </HEAD>
-<BODY>
-   <H1>Hi</H1>
-   <P>This is very minimal "hello world" HTML document.</P> 
-</BODY>
-</HTML>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script type="text/javascript" src="https://d3js.org/d3.v4.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+</head>
+<style>
+    #label {
+        width:900px;
+        height: 50px;
+        float: left;
+        border-style:   solid;
+        border-width:   2px;
+        border-color: rgba(0, 0, 0, 0.51);
+        text-align: center;
+        background-color: #f5f5f5;
+
+    }
+
+    #sideBar {
+        width:300px;
+        min-height:300px;
+        left: 910px;
+        top: 0px;
+        position: fixed;
+        border-style:   solid;
+        border-width:   2px;
+        border-color: rgba(0, 0, 0, 0.51);
+
+    }
+    #can {
+        min-height:100px;
+        width:900px;
+        border-style :   solid;
+        border-width:   2px;
+        border-color: rgba(255, 255, 255, 0.51);
+        background-color: white;
+        float: left;
+    }
+    #detail {
+        width:900px;
+        float: left;
+        clear: both;
+        border-style :   solid;
+        border-width:   2px;
+        border-color: rgba(0, 0, 0, 0.51);
+        font-weight: bold;
+        background-color: white;
+    }
+
+    .labels{
+        font-weight: bold;
+        text-anchor: middle;
+    }
+    .nodes {
+        fill: white;
+        opacity: 0.5;
+        stroke: black;
+        stroke-width: 3px;
+        border-collapse: separate;
+    }
+    .nodes:hover{
+        stroke: red;
+        fill : #ff876a;
+        stroke-width: 5px;
+    }
+    .lineArrows{
+        stroke: navy;
+        stroke-width: 2px;
+        overflow: hidden;
+    }
+
+    .nodeLabels{
+        fill: black;
+        text-anchor: middle;
+        text-align: center;
+    }
+
+    .pathLabels{
+        fill: navy;
+    }
+    .button{
+
+    }
+    div.tooltip {
+        box-sizing: border-box;
+        position: absolute;
+        text-align: center;
+        width: border-box;
+        padding: 4px;
+        font: 14px sans-serif;
+        background: lightsteelblue;
+        border: 0px;
+        border-radius: 8px;
+        pointer-events: none;
+        text-anchor: middle;
+    }
+
+
+    .bar {
+        fill: steelblue;
+    }
+
+    .bar:hover {
+        fill: brown;
+    }
+
+    .axis--x {
+        font: 14px sans-serif;
+    }
+    .axis--x path {
+        display: none;
+    }
+
+    .outputLabels {
+        font-size: large;
+    }
+
+    .parameters {
+        padding-left:5em;
+    }
+
+    body {
+        background-color: rgb(51, 51, 51);
+
+    }
+
+
+</style>
+<div id="label"></div>
+<div id="sideBar"></div>
+<div id="can"></div>
+<div id="detail"></div>
+<svg width="1500" height="1500">
+    <defs>
+        <marker
+                id="arrow"
+                markerUnits="strokeWidth"
+                markerWidth="8"
+                markerHeight="12"
+                viewBox="0 0 12 12"
+                refX="10"
+                refY="6"
+                orient="auto">
+            <path d="M2,2 L10,6 L2,10 L6,6 L2,2" style="fill: navy;"></path>
+        </marker>
+    </defs>
+
+    <!-- <line x1="0" y1="0" x2="200" y2="50"  stroke="red" stroke-width="2" marker-end="url(#arrow)"/> -->
+
+    <!-- <path d="M20,70 T80,100 T160,80 T200,90" fill="white" stroke="red" stroke-width="2" marker-start="url(#arrow)" marker-mid="url(#arrow)" marker-end="url(#arrow)"/> -->
+</svg>
+
+<body>
+<script>
+    var sideBarWidth = 300;
+    var sideBarHeight = 300;
+    var labelHeigth = 50;
+    var labelWidth = 900;
+    var canvasHeight = 100;
+    var canvasWidth = labelWidth;
+    var detailHeight = 910;
+    var detailWidth = labelWidth;
+    var nodeWidth = 60;
+    var nodeSpace = nodeWidth;
+    var nodesPerRow = 7;// for square nodes of width nodeWidth=60 -> (canvas width - margins) / 60 = 7
+    var nodeMargin = (canvasWidth - (nodesPerRow * nodeWidth) - ((nodesPerRow - 1) * nodeSpace)) / 2 ;
+    var div = d3.select("body").append("div")
+            .attr("class", "tooltip")
+            .style("opacity", 0);
+    var Margin = 25;//margin from all sides of panel
+    var XYsideBarImage = 250;// x and y value of images shown in side bar
+
+
+    var label = d3.select("body").select("#label").append("svg").attr("width", labelWidth).attr("height", labelHeigth);
+    var sideBar = d3.select("body").select("#sideBar").append("svg").attr("width", sideBarWidth).attr("height", sideBarHeight);
+    var canvas = d3.select("body").select("#can").append("svg").attr("width", canvasWidth).attr("height", canvasHeight);
+    var detailForm = d3.select("body").select("#detail").append("form").attr("width", 900).attr("height", 50);
+    var detail = d3.select("body").select("#detail").append("svg").attr("width", detailWidth).attr("height", 0);
+
+    var myData;
+    var numLayers;
+    var numRows;
+    var maxVal;
+    var maxIndex;
+    var rowHeight = nodeWidth + (Margin * 2);
+    var xCoord = new Array();
+    var yCoord = new Array();
+    var path = "http://localhost:8888/laskaactivations/";
+
+
+
+
+    d3.json("data.json", function(error, data) {
+
+        if (error) {  //If error is not null, something went wrong.
+            console.log(error);  //Log the error.
+        }
+
+        myData = data;
+        numLayers = String(myData[0].Children.length);
+
+        for (index = 0; index <  numLayers; index++){
+            var node_ = myData[0].Children[index];
+            if(node_.Input == null){
+                var input = 0;
+                var output = 0;
+                switch (node_.Name.substring( 0 , 2 )){
+                    case 'co':
+                        if( node_.NumFilters.constructor === Array){
+                            for (n = 0; n < node_.NumFilters.length; n++ ){
+                                input = node_.NumChannels[n] + input;
+                                output = node_.NumFilters[n] + output;
+                            }
+                        } else {
+                            input = node_.NumChannels;
+                            output = node_.NumFilters;
+                        }
+                        node_.Input = input;
+                        node_.Output = output;
+                        break;
+                    case 're':
+                        var tempInd = index - 1 ;
+                        while ( myData[0].Children[tempInd].Output == null){
+                            tempInd --;
+                        }
+                        node_.Input = node_.Output = myData[0].Children[tempInd].Output;
+                        break;
+                    case 'no':
+                        var tempInd = index - 1 ;
+                        while ( myData[0].Children[tempInd].Input == null){
+                            tempInd --;
+                        }
+                        node_.Input = node_.Output = myData[0].Children[tempInd].Output;
+                        break;
+                    case 'po':
+                        var tempInd = index - 1 ;
+                        while ( myData[0].Children[tempInd].Input == null){
+                            tempInd --;
+                        }
+                        node_.Input = node_.Output = myData[0].Children[tempInd].Output;
+                        break;
+                    case 'dr':
+                        var tempInd = index - 1 ;
+                        while ( myData[0].Children[tempInd].Input == null){
+                            tempInd --;
+                        }
+                        node_.Input = node_.Output = myData[0].Children[tempInd].Output;
+                        break;
+                    case 'pr':
+                        var tempInd = index - 1 ;
+                        while ( myData[0].Children[tempInd].Input == null){
+                            tempInd --;
+                        }
+                        node_.Input = node_.Output = myData[0].Children[tempInd].Output;
+                        break;
+                    case 'ou':
+                        node_.Input = myData[0].Children[index -1].Output;
+                        break;
+                    case 'fc':
+                        node_.Input = myData[0].Children[index].InputSize;
+                        node_.Output = myData[0].Children[index].OutputSize;
+                        break;
+
+                }
+            }
+        }
+
+
+        //*********************************-All code for Labels Panel-*********************************
+
+        //labels in label area "Network Name" + "Number of Layers"
+        label.selectAll("text")
+                .data([myData[0]])
+                .enter()
+                .append("text")
+                .attr("class", "labels")
+                .attr("x", (labelWidth / 2))
+                .attr("y", 30)
+                .text(function (d) {
+                    var tag1 = "Network Name: ";
+                    var tag2 = "Number of Layers: ";
+                    return tag1 + d.NetworkName +
+                            '\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0' +
+                            '\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0'+
+                            tag2 + String(numLayers); });
+
+        //*********************************-All Code for Canvas panel-*********************************
+
+        var numRows = Math.ceil(numLayers / nodesPerRow);
+        canvasHeight = numRows * rowHeight;
+        canvas.attr("height", canvasHeight);
+
+        // Calculating the x , y coordinates of nodes to be drawng
+        for (index = 0; index < numLayers; index++){
+            xCoord[index] = nodeMargin + (index % nodesPerRow) * nodeWidth + (index % nodesPerRow) * nodeSpace;
+            yCoord[index] = Margin + Math.floor(index /  nodesPerRow) * rowHeight;
+        }
+
+        canvas.append("g").selectAll("path")
+                .data(data[0].Children.filter(function(d,i) {
+                    return d.Name != "output";
+                }))
+                .enter()
+                .append("path")
+                .attr("class", "lineArrows")
+                .attr("d", calculatePath)
+                .attr("marker-end","url(#arrow)")
+                .attr("fill", "transparent");
+
+        canvas.append("g").selectAll("text")
+                .data(data[0].Children)
+                .enter()
+                .append("text")
+                .attr("class", "nodeLabels")
+                .attr("x", function (d, i) {
+                    return xCoord[i] + (nodeWidth / 2);
+                })
+                .attr("y", function (d, i) {
+                    return yCoord[i] + (nodeWidth / 2);
+                })
+                .text(function (d) { return d.Name});
+
+
+        canvas.append("g").selectAll("rect")
+                .data(data[0].Children)
+                .enter()
+                .append("rect")
+                .attr("class", "nodes")
+                .attr("x", function (d,i) {
+                    return xCoord[i];
+                })
+                .attr("y", function (d,i) {
+                    return yCoord[i];
+                })
+                .attr( "height", nodeWidth)
+                .attr( "width", nodeWidth)
+                //.attr("rx", 15)
+                //.attr("ry", 15)
+                .on("click", function (d, i) {
+
+                    d3.selectAll(".nodes").style("stroke", "black");
+
+                    sideBar.selectAll(".layerInfo")
+                            .remove();
+
+                    d3.select(this).style("stroke", "orange");
+
+
+                    sideBar.append("text")
+                            .attr("class", "layerInfo")
+                            .attr("x", 3)
+                            .attr("y", 2 * Margin + XYsideBarImage)
+                            .attr("fill", "red")
+                            .text("Selected Layer: " + d.Name)
+                            .style("font-size", "20px")
+
+
+                    switch (d.Name.substring( 0 , 2 )) {
+                        case 'co':
+                            showDetail(d, i);
+                            break;
+                        case 'pr':
+                            showProb(d, i);
+                            break;
+                        case 'ou':
+                            showOutput(d, i);
+                            break;
+                        case 'po':
+                            showPool(d, i);
+                            break;
+                        case 'no':
+                            showParameters(d,i);
+                            break;
+                        case 'fc':
+                            showParameters(d,i);
+                            break;
+                        case 'dr':
+                            showParameters(d,i);
+                            break;
+                    }
+                });
+
+
+        canvas.append("g").selectAll("text")
+                .data(data[0].Children.filter(function(d,i) {
+                    var temp1 = "data";
+                    var temp2 = "input";
+
+                    return d.Name != (temp1 || temp2);
+                }))
+                .enter()
+                .append("text")
+                .attr("class", "pathLabels")
+                .attr("x", function (d, i) {
+                    return xCoord[i + 1] - (nodeSpace / 2);
+                })
+                .attr("y", function (d, i) {
+                    return yCoord[i + 1] + nodeWidth / 2 - 2;
+                })
+                .text(function (d) { return d.Input})
+                .attr("text-anchor", "middle");
+
+
+        //*********************************-All code for sideBar Panel-*********************************
+
+        // add the input image to the sideBar
+        sideBar.append("svg:image")
+                .attr("class", "panel")
+                .attr("xlink:href",  function(d) { return path +"laska.png";})
+                .attr("x", Margin)
+                .attr("y", Margin)
+                .attr("height", XYsideBarImage)
+                .attr("width",  XYsideBarImage);
+
+        sideBar.append("text")
+                .attr("class", "labels")
+                .attr("x", sideBarWidth / 2)
+                .attr("y", Margin - 5)
+                .text("Input Image")
+                .attr("text-anchor", "middle");
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    });
+
+    function showDetail(d,i) {
+
+        var path;
+        var numFilters = d.Children.length;
+        //var filtersPerRow = Math.ceil( Math.sqrt(numFilters) );//square of this number is the number of mini squares we have
+        var filtersPerRow = 10;
+        var filterWidth = detailWidth / filtersPerRow;
+        var path1 = "http://localhost:8888/laskaback/";
+        var path2 = "http://localhost:8888/laskaactivations/";
+        var path = "http://localhost:8888/laskaback/";
+        var LayerNum = i;
+
+
+        sideBar.attr("height", sideBarHeight * 3 - 35);
+
+        if (!d.Children){return;}//DON'T Show anything if there is no filters
+
+        removeAllDetails();
+
+        //adjust the size of detailCanvas
+        detail.attr("height", filterWidth * Math.ceil(numFilters/10) + 10);
+
+        legend1 = "<span style='color: red'>double click to annotate bad</span>";
+        legend2 = "<span style='color: blue'>double click to annotate bad</span>";
+        legend3 = "<span style= 'color: black'>double click to annotate bad</span>";
+        legend = legend1 + " " + legend2 + " " + legend3 + "<br>";
+
+        detailForm.append('label')
+                .attr("class", "button")
+                .html(legend);
+
+
+
+        // add two radio buttons for each of the m
+        detailForm.append('label')
+                .attr("class", "button")
+                .html('Guided Back Propagation');
+
+        detailForm.append('input')
+                .attr("class", "button")
+                .attr("checked", "checked")
+                .attr('type', 'radio')
+                .attr('name', 'toggle')
+                .on('click', function () {
+                    //Do something
+                    detailForm.selectAll(".parameters")
+                            .remove();
+
+                    d3.selectAll(".filters").attr("visibility", "visible");
+                    d3.selectAll(".strokes").attr("visibility", "visible");
+
+                    path = path1;
+
+                    detail.selectAll(".filters")
+                            .attr("xlink:href",  function(d) { return path + d.img;});
+                });
+
+        detailForm.append('label')
+                .attr("class", "button")
+                .html('<br>Normalized Forward Activation');
+        detailForm.append('input')
+                .attr("class", "button")
+                .attr('type', 'radio')
+                .attr('name', 'toggle')
+                .on('click', function () {
+                    //Do something
+                    detailForm.selectAll(".parameters")
+                            .remove();
+
+                    d3.selectAll(".filters").attr("visibility", "visible");
+                    d3.selectAll(".strokes").attr("visibility", "visible");
+
+                    path = path2;
+
+                    detail.selectAll(".filters")
+                            .attr("xlink:href",  function(d) { return path + d.img;});
+                });
+
+        detailForm.append('label')
+                .attr("class", "button")
+                .html('<br>Parameter Information');
+        detailForm.append('input')
+                .attr("class", "button")
+                .attr('type', 'radio')
+                .attr('name', 'toggle')
+                .on('click', function () {
+                    //Do something
+                    d3.selectAll(".filters").attr("visibility", "hidden");
+                    d3.selectAll(".strokes").attr("visibility", "hidden");
+
+                    showParameters(d,i,1);
+                });
+
+        detail.selectAll("rect")
+                .data(d.Children)
+                .enter()
+                .append("rect")
+                .attr("class", function(d, i){return "strokes a" + (i + 1);} )
+                .attr("id", function(d,i){return i;})
+                .attr("x", function (d, i) { return 1 + ( i % filtersPerRow) * filterWidth})
+                .attr("y", function (d, i) { return (10 + Math.floor( i / filtersPerRow) * filterWidth )})
+                .attr("height", (filterWidth - filterWidth * 0.05))
+                .attr("width",  (filterWidth - filterWidth * 0.05))
+                .attr("stroke", function (d) {
+                    if ( d.good == 1){
+                        return "blue";
+                    }
+                    else if ( d.bad == 1) {
+                        return "red";
+                    } else{
+                        return "transparent";
+                    }
+                })
+                .attr("stroke-width", "3px");
+
+
+        detail.selectAll("img")
+                .data(d.Children)
+                .enter()
+                .append("svg:image")
+                .attr("class", "filters")
+                .attr("name", "image")
+                .attr("xlink:href",  function(d) { return path + d.img;})
+                .attr("x", function (d, i) { return 1 + ( i % filtersPerRow) * filterWidth})
+                .attr("y", function (d, i) { return (10 + Math.floor( i / filtersPerRow) * filterWidth )})
+                .attr("height", (filterWidth - filterWidth * 0.05))
+                .attr("width",  (filterWidth - filterWidth * 0.05))
+                .on("mouseover", function(d) {
+                    var imageName = d.img;
+                    var filterID = d.id;
+
+                    sideBar.append("text")
+                            .attr("class", "tooltip")
+                            .attr("x", sideBarWidth * 0.70)
+                            .attr("y", 2 * Margin + XYsideBarImage)
+                            .text("Filter#: " + d.id)
+                            .style("font-size", "18px")
+                            .attr("fill", "navy");
+
+                    sideBar.selectAll("img")
+                            .data([d])
+                            .enter()
+                            .append("svg:image")
+                            .attr("class", "tooltip")
+                            .attr("xlink:href",  function(d) { return path + imageName;})
+                            .attr("x", Margin)
+                            .attr("y", XYsideBarImage + Margin * 3)
+                            .attr("height", XYsideBarImage)
+                            .attr("width",  XYsideBarImage);
+
+                    sideBar.append("svg:image")
+                            .attr("class", "tooltip")
+                            .attr("xlink:href",  function(d) {
+                                if(path == path1){
+                                    var path_ = path2;
+                                } else {
+                                    path_ = path1;
+                                }
+                                return path_ + imageName;})
+                            .attr("x", Margin)
+                            .attr("y", 2 * (XYsideBarImage) + 4 * Margin)
+                            .attr("height", XYsideBarImage)
+                            .attr("width",  XYsideBarImage);
+                })
+                .on("mouseout", function(d) {
+                    div.transition()
+                            .duration(500)
+                            .style("opacity", 0);
+                    var offscreen = sideBar.selectAll(".tooltip")
+                            .remove();
+                })
+                .on("click", function (d) {
+
+                    if (d3.event.shiftKey) {
+                        d.bad = 0;
+                        d.good = 0;
+                    }
+                    else {
+                        d.bad = 0;
+                        d.good = 1;
+                    }
+
+                    draw(d, LayerNum, this);
+                    fillRect(d, LayerNum);
+                })
+                .on("dblclick", function (d) {
+                    //hshere
+                    //store annotations
+                    d.good = 0;
+                    d.bad = 1;
+
+                    draw(d, LayerNum, this);
+                });
+
+
+
+
+    }
+
+    function calculatePath (d, i) {
+        //dynamically calculating the path from one node to another
+        var arrowOffset = nodeWidth + Margin;
+        if ( ( (i + 1) % nodesPerRow) == 0 && (i + 1) / nodesPerRow > 0){
+            return ( "M" + (xCoord[i] + nodeWidth) + "," +(yCoord[i] + nodeWidth / 2) +
+            "C" + (xCoord[i] + nodeWidth + nodeWidth / 3) + " " + (yCoord[i] + nodeWidth / 2) + "," +
+            (xCoord[i] + nodeWidth + nodeWidth / 3) + " " + (arrowOffset + yCoord[i]) + "," +
+            (xCoord[i] + nodeWidth) + " " + (arrowOffset + yCoord[i]) +
+            "L" + nodeMargin + "," + (arrowOffset + yCoord[i]) +
+            "C" + nodeMargin / 2 + " " + (arrowOffset + yCoord[i]) + "," +
+            nodeMargin / 2 + " " + (arrowOffset + yCoord[i] + nodeWidth / 2) + ","+
+            (xCoord[i +1 ]) + " " +(yCoord[i +1 ] + nodeWidth / 2));
+
+        }  else {
+            return ("M" + (xCoord[i] + nodeWidth) + "," +(yCoord[i] + nodeWidth / 2) +
+            "L" + xCoord[i + 1] + "," + (yCoord[i + 1] + nodeWidth / 2));
+
+        }
+
+    }
+
+    function draw(d, i, obj) {
+
+        console.log(d);
+        var currentFilter = d;
+        var LayerNum = i;
+        var filterID = d.id;
+
+
+        canvas.selectAll(".filterInfo")
+                .remove();
+        /*
+        canvas.append("text")
+                .attr("class", "filterInfo")
+                .attr("x", xCoord[i] + nodeWidth / 2)
+                .attr("y", yCoord[i] + nodeWidth * 0.75)
+                .text(function () {
+                    //hshere
+                    var count = 0;
+                    if(myData[0].Children[LayerNum]){
+                        myData[0].Children[LayerNum].Children.forEach(
+
+                                function(d) {
+                                    if(d.good){
+                                        count = count + d.good;
+                                    }
+                                }
+                        )
+
+                    }
+
+                    return count;
+                })
+                .attr("text-anchor", "middle");
+
+            */
+
+        detail.selectAll(".strokes")
+                .filter(".a"+filterID)
+                .attr("stroke", function (currentFilter) {
+                    if ( d.good == 1){
+                        return "blue";
+                    } else if( d.bad == 1){
+                        return "red";
+                    } else {
+                        return "transparent";
+                    }
+                })
+                .attr("stroke-width", "5px");
+
+
+
+
+
+
+
+
+
+    }
+
+    function showProb(d, i) {
+
+        //remove all the buttons and filters in detail panel
+        removeAllDetails();
+
+        //adjust the size of detail canvas
+        detail.attr("height", 600);
+
+        probData = { "Results" : [] };
+
+        var svg = detail,
+                margin = {top: 20, right: 20, bottom: 30, left: 40},
+                width = +svg.attr("width") - margin.left - margin.right,
+                height = +svg.attr("height") - margin.top - margin.bottom;
+
+        var x = d3.scaleBand().rangeRound([0, width]).padding(0.1),
+                y = d3.scaleLinear().rangeRound([height, 0]);
+
+        var g = svg.append("g")
+                .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+        d3.json("prob.json", function(error, data) {
+            if (error) throw error;
+
+            maxVal = Math.max.apply(null, data);
+            maxIndex = data.indexOf(maxVal);
+
+            var prob = "Probability";
+            var className = "className";
+
+
+            for(index=0; index < data.length; index++) {
+                var jsonData = {};
+
+                jsonData[prob] = data[index];
+                jsonData[className] = myData[0].Children[myData[0].Children.length - 1].ClassNames[index][0];
+
+                probData.Results.push(jsonData);
+            }
+
+
+            probData = probData.Results;
+
+            x.domain(probData
+                    .filter( function (d) {
+                        return d.Probability > 0.01;})
+                    .sort( function(a, b) {
+                        return d3.descending(a.Probability, b.Probability); })
+                    .map(function(d) {
+                        return d.className; })
+            );
+            y.domain([0, 1]);
+
+            g.append("g")
+                    .attr("class", "axis axis--x")
+                    .attr("transform", "translate(0," + height + ")")
+                    .call(d3.axisBottom(x));
+
+            g.append("g")
+                    .attr("class", "axis axis--y")
+                    .call(d3.axisLeft(y).ticks(10, "%"))
+                    .append("text")
+                    .attr("transform", "rotate(-90)")
+                    .attr("y", 6)
+                    .attr("dy", "0.71em")
+                    .attr("text-anchor", "end")
+                    .text("Probability")
+                    .attr("fill", "black");
+
+            g.selectAll(".bar")
+                    .data(probData.filter(function (d) { return d.Probability > 0.01;}))
+                    .enter().append("rect")
+                    .attr("class", "bar")
+                    .attr("x", function(d) { return x(d.className); })
+                    .attr("y", function(d) { return y(d.Probability); })
+                    .attr("width", x.bandwidth())
+                    .attr("height", function(d) { return height - y(d.Probability); })
+                    .on("mouseover", function(d){
+
+                        var shoop = JSON.stringify(d, ["Probability"]);
+                        shoop = shoop.replace(/[{}]/g, "");
+                        shoop = shoop.replace(/"/g, "");
+                        shoop = shoop.replace(/:/g," : " );
+
+                        var leftshift = parseInt(d3.select(this).attr("x")) + margin.left + Margin;
+                        leftshift = leftshift.toString();
+                        var topShift = canvasHeight + labelHeigth + parseInt(d3.select(this).attr("y"));
+                        topShift = topShift.toString();
+
+                        div.transition()
+                                .duration(200)
+                                .style("opacity", .9);
+                        div	.html(shoop)
+                                .style("left", leftshift + "px")
+                                .style("top", topShift  + "px");
+                    })
+                    .on("mouseout", function (d) {
+                        div.transition()
+                                .duration(500)
+                                .style("opacity", 0);
+                        detail.selectAll(".tooltip")
+                                .remove();
+                    });
+        });
+
+
+
+    }
+
+    function showOutput(d,i) {
+
+        //remova all stuff from detail canvas
+        removeAllDetails();
+
+        var t = d3.transition()
+                .delay(500)
+                .duration(750)
+                .ease(d3.easeLinear);
+
+        var     otherMargins = detailWidth * 0.1,
+                leftMargin = detailWidth * 0.25,
+                maxBarWidth = detailHeight - otherMargins - leftMargin
+                maxChartHeight = detailHeight - (otherMargins * 2);
+
+
+
+
+        d3.json("prob.json", function(error, data) {
+            if (error) throw error;
+
+            maxVal = Math.max.apply(null, data);
+            maxIndex = data.indexOf(maxVal);
+            maxVal = maxVal.toFixed(2);
+
+
+            var prediction = d.ClassNames[maxIndex][0];
+            console.log(prediction)
+
+
+
+            detail.append("rect")
+                    .attr("class", "outputLabels")
+                    .attr("x", 2*Margin)
+                    .attr("y", detailWidth * 0.15)
+                    .attr("height", Margin)
+                    .attr("width", detailWidth - 4 * Margin)
+                    .attr("fill", "lightsteelblue");
+
+
+            detail.append("rect")
+                    .attr("class", "outputLabels")
+                    //.attr("id", "rectEnter")
+                    .attr("x", 2*Margin)
+                    .attr("y", detailWidth * 0.15)
+                    .attr("height", Margin)
+                    .attr("width", (detailWidth - 4 * Margin)*maxVal)
+                    .attr("fill", "navy");
+
+
+            detail.append("text")
+                    .attr("class", "outputLabels")
+                    .attr("x", 2 * Margin)
+                    .attr("y", detailWidth * 0.20)
+                    .text("0")
+                    .attr("text-anchor", "end");
+
+            detail.append("text")
+                    .attr("class", "outputLabels")
+                    .attr("x", detailWidth - 2 * Margin)
+                    .attr("y", detailWidth * 0.20 )
+                    .text("1")
+                    .attr("text-anchor", "start");
+
+            detail.append("text")
+                    .attr("class", "outputLabels")
+                    .attr("x", (detailWidth - 2 * Margin ) * maxVal )
+                    .attr("y", detailWidth * 0.17)
+                    .text(maxVal)
+                    .attr("text-anchor", "end")
+                    .attr("fill", "white");
+
+            detail.append("text")
+                    .attr("class", "outputLabels")
+                    .attr("x", detailWidth / 2)
+                    .attr("y", detailWidth * 0.20)
+                    .text("Condifidence Score in the rang of [0,1]")
+                    .attr("text-anchor", "middle");
+
+            detail.append("text")
+                    .attr("class", "outputLabels")
+                    .attr("x", detailWidth / 2)
+                    .attr("y", detailWidth * 0.10)
+                    .text(function () {
+                        return "The network has classifed the input as: '" + prediction +"'";
+
+                    })
+                    .attr("text-anchor", "middle")
+                    .style("font-size", "34px");
+
+            detail.append("text")
+                    .attr("class", "outputLabels")
+                    .attr("x", detailWidth / 2)
+                    .attr("y", detailWidth * 0.23 + XYsideBarImage)
+                    .text(function () {
+                        return "The top image from Flickr for '" + prediction + "'";
+                    })
+                    .attr("text-anchor", "middle")
+                    .style("font-size", "16px");
+
+
+            var im = getFlicker(prediction);
+
+
+
+
+
+        });
+    }
+
+    function removeAllDetails() {
+        detail.selectAll(".strokes")
+                .remove();
+
+        detailForm.selectAll(".parameters")
+                .remove();
+
+        detail.selectAll(".filters")
+                .remove();
+
+        detailForm.selectAll(".button")
+                .remove();
+
+        detail.selectAll(".bar")
+                .remove();
+
+        detail.selectAll(".axis")
+                .remove();
+
+
+        detail.selectAll(".outputLabels")
+                .remove();
+
+        detail.selectAll(".detailedRect")
+                .remove();
+    }
+
+    function getFlicker(keyword) {
+
+        var flickerImage = "";
+
+        $(document).ready(function(){
+
+            $.getJSON("http://api.flickr.com/services/feeds/photos_public.gne?jsoncallback=?",
+                    {
+                        tags: keyword,
+                        tagmode: "any",
+                        format: "json"
+                    },
+                    function(data) {
+                        //var rnd = Math.floor(Math.random() * data.items.length);
+                        var rnd = 1;
+
+                        var image_src = data.items[rnd]['media']['m'].replace("_m", "_b");
+
+                        detail.append("svg:image")
+                                .attr("class", "outputLabels")
+                                .attr("xlink:href",  function(d) { return image_src;})
+                                .attr("x", (detailWidth - XYsideBarImage) / 2)
+                                .attr("y", detailWidth * 0.25)
+                                .attr("height", XYsideBarImage)
+                                .attr("width",  XYsideBarImage);
+
+
+                    });
+        });
+
+
+    }
+
+    function showPool(d, i) {
+
+        var squareWidth = 50;
+        var margin = {
+                    top: 55 ,
+                    right: 50 ,
+                    bottom: 30 ,
+                    left: 50
+                };
+
+        removeAllDetails();
+
+        detail.attr("height", 500);
+
+        var poolSize = d.PoolSize[0];
+        drawRectanglePack(poolSize, 0 , 0, squareWidth);
+        detail.append("text")
+                .attr("class", "outputLabels")
+                .attr("x", function () {
+                    if(poolSize > 2) {
+                        return margin.left + (poolSize - 2) * squareWidth / 2
+                    } else {
+                        return margin.left;
+                    }
+
+                })
+                .attr("y", margin.top)
+                .text(function () {
+                    return "Pool window size";
+                })
+                .attr("text-anchor", "start")
+                .style("font-size", "12px");
+
+
+        var strideSize = d.Stride[0];
+        drawRectanglePack(strideSize, detailWidth / 3 , 0, squareWidth);
+        detail.append("text")
+                .attr("class", "outputLabels")
+                .attr("x", function () {
+                    if(strideSize > 2) {
+                        return margin.left + detailWidth / 3 - 10 + (strideSize - 2) * squareWidth / 2
+                    } else {
+                        return margin.left + detailWidth / 3 - 10;
+                    }
+
+                })
+                .attr("y", margin.top)
+                .text(function () {
+                    return "Stride window size" ;
+                })
+                .attr("text-anchor", "start")
+                .style("font-size", "12px");
+
+    }
+
+    function drawRectanglePack(number, xStart, yStart, squareWidth) {
+
+        var number = number * number;
+//make the data
+        var cols = Math.ceil(Math.sqrt(number))
+        var data = [];
+        for (var i = 0; i < cols; i++) {
+            var d = new Array(cols).fill(0);//make an array of 0
+            data.push(d)
+        }
+
+        for (var i = cols -1; i >= 0; i--) {
+            for (var k = 0; k < cols; k++) {
+                if(number > 0){
+                    data[i][k] = 1;//if number > 0 make it as 1
+                }
+                number--;
+            }
+        }
+
+
+        var margin = {
+                    top: 20 + yStart,
+                    right: 20 ,
+                    bottom: 30 ,
+                    left: 40 + xStart
+                },
+                width = detailWidth - margin.left - margin.right,
+                height = detailHeight - margin.top - margin.bottom;
+
+        //make svg
+        var svg = detail
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+        //make rectangle grid
+        var column = 0;
+        svg.selectAll("cols")
+            .data(data)
+            .enter()
+            .append("g")
+            .selectAll("rect")
+            .data(function(d) {
+                return d;
+            })
+            .enter()
+            .append("rect")
+            .attr("class", "detailedRect")
+            .attr("width", squareWidth)
+            .attr("height", squareWidth)
+            .attr("x", function(d, i) {
+                return i * squareWidth
+            })
+            .attr("y", function(d, i) {
+                if (i ==0)
+                    column++;
+                return column * squareWidth;
+            })
+            .style("fill", function(d){
+                return "navy"
+            })
+            .style("display", function(d){
+                if (d == 0)
+                    return "none"
+                else
+                    return "block"
+            })
+            .style("stroke", function(d){
+                return "white"
+            })
+        return;
+
+    }
+
+    function showParameters (d, i, flag){
+
+        if (!flag){
+            removeAllDetails();
+        }
+
+
+        var shoop = JSON.stringify(d,["Name","FilterSize","Input", "Output", "InputSize", "NumChannels",
+            "NumFilters", "Stride", "Padding", "WindowChannelSize", "Alpha", "Beta", "K", "PoolSize",
+            "WeightLearnRateFactor", "WeightL2Factor", "BiasLearnRateFactor", "BiasL2Factor",
+            "OutputSize", "LossFunction", "crossentropyex", "Probability"]);
+
+        shoop = shoop.replace (/,"/g,"<br>");
+        shoop = shoop.replace(/[{}]/g, "");
+        shoop = shoop.replace(/"/g, "");
+        shoop = shoop.replace(/:/g," : " );
+
+        margin  = "<h3 style='color:blue;margin-left:50px;'>";
+        shoop = margin + shoop + "</h1>";
+
+
+        detailForm.append('label')
+                .attr("class", "parameters")
+                .html('<hr>')
+
+        detailForm.append('label')
+                .attr("class", "parameters")
+                .html(shoop);
+
+
+    }
+
+    function fillRect(d, i) {
+
+        var layerNum = i;
+        var Y = yCoord[i];
+        var filterCount = myData[0].Children[i].Output;
+        var scale = d3.scaleLinear()
+                .domain([0, filterCount])
+                .range([0, nodeWidth]);
+        var goodCount = 0;
+        var badCount = 0;
+
+        if(myData[0].Children[i]){
+            myData[0].Children[i].Children.forEach(
+
+                    function(d) {
+                        if(d.good){
+                            goodCount = goodCount + d.good;
+                        } else if (d.bad){
+                            badCount = badCount + d.bad ;
+                        }
+                    }
+            )
+
+        }
+
+        var goodWidth = Math.ceil(scale(goodCount));
+        var badX = goodWidth;
+
+        canvas.append("rect")
+                .attr("class", "stackedBar background")
+                .attr("x", xCoord[layerNum])
+                .attr("y", yCoord[layerNum] + nodeWidth - 20)
+                .attr( "height", 20)
+                .attr( "width", nodeWidth)
+                .attr("fill", "white")
+                .attr("stroke", "black")
+                .on("mouseover", function () {
+                    var leftshift = parseInt(d3.select(this).attr("x"));
+                    leftshift = leftshift.toString()
+
+                    var temp = "#bad : " + badCount + '<br>' + "#good : " + goodCount + '<br>' + "#filters : " +filterCount;
+                    div.transition()
+                            .duration(200)
+                            .style("opacity", .9);
+                    div	.html(temp)
+                            .style("left", leftshift + "px")
+                            .style("top", d3.select(this).attr("y")  + "px");
+                })
+                .on("mouseout", function(d) {
+                    div.transition()
+                            .duration(500)
+                            .style("opacity", 0);
+                });
+
+        canvas.append("rect")
+                .attr("class", "stackedBar good")
+                .attr("x", xCoord[layerNum])
+                .attr("y", yCoord[layerNum] + nodeWidth - 20)
+                .attr( "height", 20)
+                .attr( "width", goodWidth)
+                .attr("fill", "blue")
+                .attr("stroke", "transparent");
+
+        canvas.append("rect")
+                .attr("class", "stackedBar bad")
+                .attr("x", xCoord[layerNum] + badX)
+                .attr("y", yCoord[layerNum] + nodeWidth - 20)
+                .attr( "height", 20)
+                .attr( "width", Math.ceil(scale(badCount)))
+                .attr("fill", "red")
+                .attr("stroke", "transparent");
+
+
+
+
+    }
+
+
+
+
+
+
+
+
+
+</script>
+
+</body>
+</html>
