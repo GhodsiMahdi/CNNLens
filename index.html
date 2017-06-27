@@ -423,24 +423,6 @@
                 .attr("text-anchor", "middle");
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     });
 
     function showDetail(d,i) {
@@ -466,8 +448,8 @@
         detail.attr("height", filterWidth * Math.ceil(numFilters/10) + 10);
 
         legend1 = "<span style='color: red'>double click to annotate bad</span>";
-        legend2 = "<span style='color: blue'>double click to annotate bad</span>";
-        legend3 = "<span style= 'color: black'>double click to annotate bad</span>";
+        legend2 = "<span style='color: blue'>click to annotate good</span>";
+        legend3 = "<span style= 'color: black'>hold "shift" + click to annotate bad</span>";
         legend = legend1 + " " + legend2 + " " + legend3 + "<br>";
 
         detailForm.append('label')
@@ -712,14 +694,6 @@
                 })
                 .attr("stroke-width", "5px");
 
-
-
-
-
-
-
-
-
     }
 
     function showProb(d, i) {
@@ -934,10 +908,6 @@
 
             var im = getFlicker(prediction);
 
-
-
-
-
         });
     }
 
@@ -993,7 +963,6 @@
                                 .attr("y", detailWidth * 0.25)
                                 .attr("height", XYsideBarImage)
                                 .attr("width",  XYsideBarImage);
-
 
                     });
         });
@@ -1235,18 +1204,7 @@
                 .attr( "width", Math.ceil(scale(badCount)))
                 .attr("fill", "red")
                 .attr("stroke", "transparent");
-
-
-
-
     }
-
-
-
-
-
-
-
 
 
 </script>
